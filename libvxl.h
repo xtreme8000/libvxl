@@ -51,7 +51,18 @@ struct libvxl_chunk {
 struct libvxl_map {
 	int width,height,depth;
 	struct libvxl_chunk* chunks;
+	struct libvxl_chunk queue;
 	unsigned char* geometry;
+	int streamed;
+};
+
+struct libvxl_stream {
+	struct libvxl_map* map;
+	int* chunk_offsets;
+	int chunk_size;
+	void* buffer;
+	int buffer_offset;
+	int pos;
 };
 
 //! @brief Load a map from memory or create an empty one
@@ -69,10 +80,11 @@ struct libvxl_map {
 //! @note Pass **NULL** as map data to create a new empty map, just water level will be filled with DEFAULT_COLOR
 void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data);
 
-//! @brief Write a map to disk, uses libvxl_write() internally
+//! @brief Write a map to disk, uses the libvxl_stream API internally
 //! @param map Map to be written
 //! @param name Filename of output file
-void libvxl_writefile(struct libvxl_map* map, char* name);
+//! @returns total bytes written to disk
+int libvxl_writefile(struct libvxl_map* map, char* name);
 
 //! @brief Compress the map back to vxl format and save it in *out*, the total byte size will be written to *size*
 //! @param map Map to compress
@@ -146,3 +158,30 @@ void libvxl_map_setair(struct libvxl_map* map, int x, int y, int z);
 //! @brief Free a map from memory
 //! @param map Map to free
 void libvxl_free(struct libvxl_map* map);
+
+//! @brief Tries to guess the size of a map
+//! @note This won't always give accurate results for a map's height
+//! @note It is assumed the map is square.
+//! @param size Pointer to int where edge length of the square will be stored
+//! @param depth Pointer to int where map height will be stored
+//! @param data Pointer to valid map data, left unmodified also not freed
+//! @param len compressed map size in bytes
+void libvxl_size(int* size, int* depth, const void* data, int len);
+
+//! @brief Start streaming a map
+//! @param stream Pointer to a struct of type libvxl_stream
+//! @param map Map to stream
+//! @param chunk_size size in bytes each call to libvxl_stream_read() will encode at most
+void libvxl_stream(struct libvxl_stream* stream, struct libvxl_map* map, int chunk_size);
+
+//! @brief Free a stream from memory
+//! @param map stream to free
+void libvxl_stream_free(struct libvxl_stream* stream);
+
+//! @brief Read bytes from the stream, this is at most stream->chunk_size bytes
+//! @note The actual byte count encoded is returned, this can be less but never more than chunk_size
+//! @note *0* is returned when the stream reached its end
+//! @param stream stream to use
+//! @param out pointer to buffer where encoded bytes are stored
+//! @returns total byte count that was encoded
+int libvxl_stream_read(struct libvxl_stream* stream, void* out);
