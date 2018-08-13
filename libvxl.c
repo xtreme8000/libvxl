@@ -92,7 +92,7 @@ void libvxl_free(struct libvxl_map* map) {
 	free(map->geometry);
 }
 
-void libvxl_size(int* size, int* depth, const void* data, int len) {
+int libvxl_size(int* size, int* depth, const void* data, int len) {
 	if(!data)
 		return 0;
 	int offset = 0;
@@ -106,11 +106,12 @@ void libvxl_size(int* size, int* depth, const void* data, int len) {
 		offset += libvxl_span_length(desc);
 	}
 	*size = sqrt(columns);
+	return 1;
 }
 
-void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data) {
+int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, int size) {
 	if(!map)
-		return;
+		return 0;
 	map->streamed = 0;
 	map->width = w;
 	map->height = h;
@@ -139,7 +140,7 @@ void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data
 		for(int y=0;y<h;y++)
 			for(int x=0;x<w;x++)
 				libvxl_map_set(map,x,y,d-1,DEFAULT_COLOR);
-		return;
+		return 1;
 	}
 
 	int offset = 0;
@@ -151,9 +152,12 @@ void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data
 			struct libvxl_chunk* chunk = map->chunks+chunk_x+chunk_y*sx;
 
 			while(1) {
+				if(offset+sizeof(struct libvxl_span)-1>=size)
+					return 0;
 				struct libvxl_span* desc = (struct libvxl_span*)(data+offset);
+				if(offset+libvxl_span_length(desc)-1>=size)
+					return 0;
 				int* color_data = (int*)(data+offset+sizeof(struct libvxl_span));
-				struct libvxl_span* desc_next = (struct libvxl_span*)(data+offset+libvxl_span_length(desc));
 
 				for(int z=desc->air_start;z<desc->color_start;z++)
 					libvxl_geometry_set(map,x,y,z,0);
@@ -165,6 +169,9 @@ void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data
 				int bottom_len = desc->length-1-top_len;
 
 				if(desc->length>0) {
+					if(offset+libvxl_span_length(desc)+sizeof(struct libvxl_span)-1>=size)
+						return 0;
+					struct libvxl_span* desc_next = (struct libvxl_span*)(data+offset+libvxl_span_length(desc));
 					for(int z=desc_next->air_start-bottom_len;z<desc_next->air_start;z++) //bottom color run
 						libvxl_chunk_put(chunk,pos_key(x,y,z),color_data[z-(desc_next->air_start-bottom_len)+top_len]);
 					offset += libvxl_span_length(desc);
@@ -175,6 +182,8 @@ void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data
 			}
 		}
 	}
+
+	return 1;
 }
 
 static void libvxl_column_encode(struct libvxl_map* map, int* chunk_offsets, int x, int y, void* out, int* offset) {
@@ -294,7 +303,7 @@ void libvxl_write(struct libvxl_map* map, void* out, int* size) {
 
 int libvxl_writefile(struct libvxl_map* map, char* name) {
 	if(!map || !name)
-		return;
+		return 0;
 	char buf[1024];
 	struct libvxl_stream s;
 	libvxl_stream(&s,map,1024);

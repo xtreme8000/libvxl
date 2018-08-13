@@ -78,7 +78,8 @@ struct libvxl_stream {
 //! @param d Depth of map (z-coord)
 //! @param data Pointer to valid map data, left unmodified also not freed
 //! @note Pass **NULL** as map data to create a new empty map, just water level will be filled with DEFAULT_COLOR
-void libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data);
+//! @returns 1 on success
+int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, int size);
 
 //! @brief Write a map to disk, uses the libvxl_stream API internally
 //! @param map Map to be written
@@ -166,7 +167,7 @@ void libvxl_free(struct libvxl_map* map);
 //! @param depth Pointer to int where map height will be stored
 //! @param data Pointer to valid map data, left unmodified also not freed
 //! @param len compressed map size in bytes
-void libvxl_size(int* size, int* depth, const void* data, int len);
+int libvxl_size(int* size, int* depth, const void* data, int len);
 
 //! @brief Start streaming a map
 //! @param stream Pointer to a struct of type libvxl_stream
