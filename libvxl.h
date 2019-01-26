@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 //! @file libvxl.h
 //! Reads and writes vxl maps, using an likewise internal memory format
 
@@ -32,15 +34,15 @@
 #define key_getz(key)			((key)&0xFF)
 
 struct libvxl_span {
-	unsigned char length;
-	unsigned char color_start;
-	unsigned char color_end;
-	unsigned char air_start;
+	uint8_t length;
+	uint8_t color_start;
+	uint8_t color_end;
+	uint8_t air_start;
 };
 
 struct libvxl_block {
-	int position;
-	int color;
+	int32_t position;
+	int32_t color;
 };
 
 struct libvxl_chunk {
@@ -49,10 +51,10 @@ struct libvxl_chunk {
 };
 
 struct libvxl_map {
-	int width,height,depth;
+	int width, height, depth;
 	struct libvxl_chunk* chunks;
 	struct libvxl_chunk queue;
-	unsigned char* geometry;
+	uint8_t* geometry;
 	int streamed;
 };
 
