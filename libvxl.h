@@ -1,3 +1,6 @@
+#ifndef LIBVXL_H
+#define LIBVXL_H
+
 #include <stdint.h>
 
 //! @file libvxl.h
@@ -6,14 +9,14 @@
 //! @brief Internal chunk size
 //! @note Map is split into square chunks internally to speed up modifications
 //! @note Lower values can speed up map access, but can lead to higher memory fragmentation
-#define CHUNK_SIZE				16
+#define LIBVXL_CHUNK_SIZE		16
 //! @brief How many blocks the buffer will grow once it is full
-#define CHUNK_GROWTH			512
+#define LIBVXL_CHUNK_GROWTH		512
 
 //! @brief The default color to use when a block is solid, but has no color
 //!
 //! This is the case for e.g. underground blocks which are not visible from the surface
-#define DEFAULT_COLOR			0x674028
+#define DEFAULT_COLOR(x,y,z)	0x674028
 
 //! @brief Use Y as top-down axis, where y=0 is water level
 #define LIBVXL_COORDS_DEFAULT	0
@@ -67,6 +70,20 @@ struct libvxl_stream {
 	int pos;
 };
 
+struct libvxl_kv6 {
+	char magic[4];
+	int width, height, depth;
+	float pivot[3];
+	int len;
+};
+
+struct libvxl_kv6_block {
+	int color;
+	short z;
+	unsigned char visfaces;
+	unsigned char normal;
+};
+
 //! @brief Load a map from memory or create an empty one
 //!
 //! Example:
@@ -79,9 +96,10 @@ struct libvxl_stream {
 //! @param h Height of map (y-coord)
 //! @param d Depth of map (z-coord)
 //! @param data Pointer to valid map data, left unmodified also not freed
+//! @param len map data size in bytes
 //! @note Pass **NULL** as map data to create a new empty map, just water level will be filled with DEFAULT_COLOR
 //! @returns 1 on success
-int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, int size);
+int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, int len);
 
 //! @brief Write a map to disk, uses the libvxl_stream API internally
 //! @param map Map to be written
@@ -188,3 +206,12 @@ void libvxl_stream_free(struct libvxl_stream* stream);
 //! @param out pointer to buffer where encoded bytes are stored
 //! @returns total byte count that was encoded
 int libvxl_stream_read(struct libvxl_stream* stream, void* out);
+
+//! @brief Check if a position is inside a map's boundary
+//! @param map Map to use
+//! @param x x-coordinate of block
+//! @param y y-coordinate of block
+//! @param z z-coordinate of block
+int libvxl_map_isinside(struct libvxl_map* map, int x, int y, int z);
+
+#endif
