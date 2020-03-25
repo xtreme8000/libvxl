@@ -57,7 +57,7 @@ struct libvxl_map {
 	int width, height, depth;
 	struct libvxl_chunk* chunks;
 	struct libvxl_chunk queue;
-	uint8_t* geometry;
+	uint32_t* geometry;
 	int streamed;
 };
 
