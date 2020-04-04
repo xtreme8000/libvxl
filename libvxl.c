@@ -39,61 +39,30 @@ static void libvxl_chunk_put(struct libvxl_chunk* chunk, int pos, int color) {
 }
 
 static void libvxl_chunk_insert(struct libvxl_chunk* chunk, int pos, int color) {
-	if(chunk->index==0) {
-		libvxl_chunk_put(chunk,pos,color);
-		return;
-	}
-
-	struct libvxl_block blk;
-	blk.position = pos;
-	struct libvxl_block* loc = bsearch(&blk,chunk->blocks,chunk->index,sizeof(struct libvxl_block),cmp);
-
-	if(loc) {
-		loc->color = color;
-	} else {
-		if(chunk->index==chunk->length) { //needs to grow
-			chunk->length += LIBVXL_CHUNK_GROWTH;
-			chunk->blocks = realloc(chunk->blocks,chunk->length*sizeof(struct libvxl_block));
-		}
-		chunk->blocks[chunk->index].position = pos;
-		chunk->blocks[chunk->index++].color = color;
-
-		qsort(chunk->blocks,chunk->index,sizeof(struct libvxl_block), cmp);
-	}
-
-
-	/*int start = 0;
+	int start = 0;
 	int end = chunk->index;
 	while(end-start>0) {
-		int diff = pos-chunk->blocks[(start+end)/2].position;
+		int mid = (start+end)/2;
+		int diff = pos-chunk->blocks[mid].position;
 		if(diff>0) {
-			start = (start+end+1)/2;
+			start = mid+1;
 		} else if(diff<0) {
-			end = (start+end)/2;
+			end = mid;
 		} else { //diff=0, replace color
-			chunk->blocks[(start+end)/2].color = color;
+			chunk->blocks[mid].color = color;
 			return;
 		}
 	}
-
-	if(start>=chunk->index)
-		start = chunk->index-1;
 
 	if(chunk->index==chunk->length) { //needs to grow
 		chunk->length += LIBVXL_CHUNK_GROWTH;
 		chunk->blocks = realloc(chunk->blocks,chunk->length*sizeof(struct libvxl_block));
 	}
 
-	if(pos-chunk->blocks[start].position>0) { //insert to the right of start
-		memmove(chunk->blocks+start+2,chunk->blocks+start+1,(chunk->index-start-1)*sizeof(struct libvxl_block));
-		chunk->blocks[start+1].position = pos;
-		chunk->blocks[start+1].color = color;
-	} else { //insert to the left of start
-		memmove(chunk->blocks+start+1,chunk->blocks+start,(chunk->index-start)*sizeof(struct libvxl_block));
-		chunk->blocks[start].position = pos;
-		chunk->blocks[start].color = color;
-	}
-	chunk->index++;*/
+	memmove(chunk->blocks+start+1,chunk->blocks+start,(chunk->index-start)*sizeof(struct libvxl_block));
+	chunk->blocks[start].position = pos;
+	chunk->blocks[start].color = color;
+	chunk->index++;
 }
 
 static int libvxl_span_length(struct libvxl_span* s) {
