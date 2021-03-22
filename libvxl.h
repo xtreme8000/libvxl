@@ -44,8 +44,8 @@ struct libvxl_span {
 };
 
 struct libvxl_block {
-	int32_t position;
-	int32_t color;
+	uint32_t position;
+	uint32_t color;
 };
 
 struct libvxl_chunk {
@@ -54,7 +54,7 @@ struct libvxl_chunk {
 };
 
 struct libvxl_map {
-	int width, height, depth;
+	uint32_t width, height, depth;
 	struct libvxl_chunk* chunks;
 	struct libvxl_chunk queue;
 	uint32_t* geometry;
@@ -63,11 +63,11 @@ struct libvxl_map {
 
 struct libvxl_stream {
 	struct libvxl_map* map;
-	int* chunk_offsets;
-	int chunk_size;
+	size_t* chunk_offsets;
+	size_t chunk_size;
 	void* buffer;
-	int buffer_offset;
-	int pos;
+	size_t buffer_offset;
+	size_t pos;
 };
 
 struct libvxl_kv6 {
@@ -99,7 +99,7 @@ struct libvxl_kv6_block {
 //! @param len map data size in bytes
 //! @note Pass **NULL** as map data to create a new empty map, just water level will be filled with DEFAULT_COLOR
 //! @returns 1 on success
-int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, int len);
+int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, size_t len);
 
 //! @brief Write a map to disk, uses the libvxl_stream API internally
 //! @param map Map to be written
@@ -136,7 +136,7 @@ int libvxl_map_onsurface(struct libvxl_map* map, int x, int y, int z);
 //! @param y y-coordinate of block
 //! @param z z-coordinate of block
 //! @returns color of block at location [x,y,z] in format *0xAARRGGBB*, on error *0*
-int libvxl_map_get(struct libvxl_map* map, int x, int y, int z);
+uint32_t libvxl_map_get(struct libvxl_map* map, int x, int y, int z);
 
 //! @brief Read color of topmost block (as seen from above at Z=0)
 //!
@@ -155,7 +155,7 @@ int libvxl_map_get(struct libvxl_map* map, int x, int y, int z);
 //! @param result pointer to *int[2]*, is filled with color at *index 0* and height at *index 1*
 //! @note *result* is left unmodified if [x,y,z] is out of map bounds
 //! @returns *nothing, see result param*
-void libvxl_map_gettop(struct libvxl_map* map, int x, int y, int* result);
+void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result);
 
 //! @brief Set block at location [x,y,z] to a new color
 //!
@@ -167,7 +167,7 @@ void libvxl_map_gettop(struct libvxl_map* map, int x, int y, int* result);
 //! @param z z-coordinate of block
 //! @param color replacement color
 //! @note nothing is changed if [x,y,z] is out of map bounds
-void libvxl_map_set(struct libvxl_map* map, int x, int y, int z, int color);
+void libvxl_map_set(struct libvxl_map* map, int x, int y, int z, uint32_t color);
 
 //! @brief Set location [x,y,z] to air, will destroy any block at this position
 //! @param map Map to use
@@ -187,7 +187,7 @@ void libvxl_free(struct libvxl_map* map);
 //! @param depth Pointer to int where map height will be stored
 //! @param data Pointer to valid map data, left unmodified also not freed
 //! @param len compressed map size in bytes
-int libvxl_size(int* size, int* depth, const void* data, int len);
+int libvxl_size(int* size, int* depth, const void* data, size_t len);
 
 //! @brief Start streaming a map
 //! @param stream Pointer to a struct of type libvxl_stream
