@@ -13,7 +13,8 @@
 //! @note Lower values can speed up map access, but can lead to higher memory fragmentation
 #define LIBVXL_CHUNK_SIZE		16
 //! @brief How many blocks the buffer will grow once it is full
-#define LIBVXL_CHUNK_GROWTH		512
+#define LIBVXL_CHUNK_GROWTH		2
+#define LIBVXL_CHUNK_SHRINK		4
 
 //! @brief The default color to use when a block is solid, but has no color
 //!

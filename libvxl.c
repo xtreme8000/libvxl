@@ -41,7 +41,7 @@ static int cmp(const void* a, const void* b) {
 static void libvxl_chunk_put(struct libvxl_chunk* chunk, uint32_t pos,
 							 uint32_t color) {
 	if(chunk->index == chunk->length) { // needs to grow
-		chunk->length += LIBVXL_CHUNK_GROWTH;
+		chunk->length *= LIBVXL_CHUNK_GROWTH;
 		chunk->blocks = realloc(chunk->blocks,
 								chunk->length * sizeof(struct libvxl_block));
 	}
@@ -57,7 +57,7 @@ static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 								uint32_t color) {
 	size_t start = 0;
 	size_t end = chunk->index;
-	while(end - start > 0) {
+	while(end > start) {
 		size_t mid = (start + end) / 2;
 		if(pos > chunk->blocks[mid].position) {
 			start = mid + 1;
@@ -70,7 +70,7 @@ static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 	}
 
 	if(chunk->index == chunk->length) { // needs to grow
-		chunk->length += LIBVXL_CHUNK_GROWTH;
+		chunk->length *= LIBVXL_CHUNK_GROWTH;
 		chunk->blocks = realloc(chunk->blocks,
 								chunk->length * sizeof(struct libvxl_block));
 	}
@@ -572,8 +572,8 @@ static void libvxl_map_setair_internal(struct libvxl_map* map, int x, int y,
 		memmove(loc, loc + sizeof(struct libvxl_block),
 				(chunk->index - i - 1) * sizeof(struct libvxl_block));
 		chunk->index--;
-		if(chunk->index <= chunk->length - LIBVXL_CHUNK_GROWTH * 2) {
-			chunk->length -= LIBVXL_CHUNK_GROWTH;
+		if(chunk->index * LIBVXL_CHUNK_SHRINK <= chunk->length) {
+			chunk->length /= LIBVXL_CHUNK_GROWTH;
 			chunk->blocks = realloc(
 				chunk->blocks, chunk->length * sizeof(struct libvxl_block));
 		}
