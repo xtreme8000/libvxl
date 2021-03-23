@@ -126,8 +126,8 @@ bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d,
 	size_t sx = (w + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (h + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	map->chunks = malloc(sx * sy * sizeof(struct libvxl_chunk));
-	for(int y = 0; y < sy; y++) {
-		for(int x = 0; x < sx; x++) {
+	for(size_t y = 0; y < sy; y++) {
+		for(size_t x = 0; x < sx; x++) {
 			map->chunks[x + y * sx].length = LIBVXL_CHUNK_SIZE
 				* LIBVXL_CHUNK_SIZE * 2; // allows for two fully filled layers
 			map->chunks[x + y * sx].index = 0;
@@ -493,13 +493,13 @@ void libvxl_kv6_write(struct libvxl_map* map, char* name) {
 }
 
 bool libvxl_map_isinside(struct libvxl_map* map, int x, int y, int z) {
-	return map && x >= 0 && y >= 0 && z >= 0 && x < map->width
-		&& y < map->height && z < map->depth;
+	return map && x >= 0 && y >= 0 && z >= 0 && x < (int)map->width
+		&& y < (int)map->height && z < (int)map->depth;
 }
 
 uint32_t libvxl_map_get(struct libvxl_map* map, int x, int y, int z) {
-	if(!map || x < 0 || y < 0 || z < 0 || x >= map->width || y >= map->height
-	   || z >= map->depth)
+	if(!map || x < 0 || y < 0 || z < 0 || x >= (int)map->width
+	   || y >= (int)map->height || z >= (int)map->depth)
 		return 0;
 	if(!libvxl_geometry_get(map, x, y, z))
 		return 0;
@@ -515,7 +515,7 @@ uint32_t libvxl_map_get(struct libvxl_map* map, int x, int y, int z) {
 bool libvxl_map_issolid(struct libvxl_map* map, int x, int y, int z) {
 	if(z < 0)
 		return false;
-	if(!map || z >= map->depth)
+	if(!map || z >= (int)map->depth)
 		return true;
 	return libvxl_geometry_get(map, (unsigned int)x % (unsigned int)map->width,
 							   (unsigned int)y % (unsigned int)map->height, z)
@@ -534,7 +534,7 @@ bool libvxl_map_onsurface(struct libvxl_map* map, int x, int y, int z) {
 }
 
 void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result) {
-	if(!map || x < 0 || y < 0 || x >= map->width || y >= map->height)
+	if(!map || x < 0 || y < 0 || x >= (int)map->width || y >= (int)map->height)
 		return;
 	int z;
 	for(z = 0; z < map->depth; z++)
@@ -546,8 +546,8 @@ void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result) {
 
 static void libvxl_map_set_internal(struct libvxl_map* map, int x, int y, int z,
 									uint32_t color) {
-	if(x < 0 || y < 0 || z < 0 || x >= map->width || y >= map->height
-	   || z >= map->depth)
+	if(x < 0 || y < 0 || z < 0 || x >= (int)map->width || y >= (int)map->height
+	   || z >= (int)map->depth)
 		return;
 	if(libvxl_geometry_get(map, x, y, z) && !libvxl_map_onsurface(map, x, y, z))
 		return;
@@ -556,8 +556,8 @@ static void libvxl_map_set_internal(struct libvxl_map* map, int x, int y, int z,
 
 static void libvxl_map_setair_internal(struct libvxl_map* map, int x, int y,
 									   int z) {
-	if(x < 0 || y < 0 || z < 0 || x >= map->width || y >= map->height
-	   || z >= map->depth)
+	if(x < 0 || y < 0 || z < 0 || x >= (int)map->width || y >= (int)map->height
+	   || z >= (int)map->depth)
 		return;
 	if(!libvxl_geometry_get(map, x, y, z))
 		return;
@@ -582,8 +582,8 @@ static void libvxl_map_setair_internal(struct libvxl_map* map, int x, int y,
 
 void libvxl_map_set(struct libvxl_map* map, int x, int y, int z,
 					uint32_t color) {
-	if(!map || x < 0 || y < 0 || z < 0 || x >= map->width || y >= map->height
-	   || z >= map->depth)
+	if(!map || x < 0 || y < 0 || z < 0 || x >= (int)map->width
+	   || y >= (int)map->height || z >= (int)map->depth)
 		return;
 
 	libvxl_map_set_internal(map, x, y, z, color);
@@ -612,8 +612,8 @@ void libvxl_map_set(struct libvxl_map* map, int x, int y, int z,
 }
 
 void libvxl_map_setair(struct libvxl_map* map, int x, int y, int z) {
-	if(!map || x < 0 || y < 0 || z < 0 || x >= map->width || y >= map->height
-	   || z >= map->depth)
+	if(!map || x < 0 || y < 0 || z < 0 || x >= (int)map->width
+	   || y >= (int)map->height || z >= (int)map->depth)
 		return;
 
 	int surface_prev[6] = {
