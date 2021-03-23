@@ -2,6 +2,8 @@
 #define LIBVXL_H
 
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 
 //! @file libvxl.h
 //! Reads and writes vxl maps, using an likewise internal memory format
@@ -18,11 +20,6 @@
 //! This is the case for e.g. underground blocks which are not visible from the surface
 #define DEFAULT_COLOR(x,y,z)	0x674028
 
-//! @brief Use Y as top-down axis, where y=0 is water level
-#define LIBVXL_COORDS_DEFAULT	0
-//! @brief Use the voxlap coordinate system, Z as top-down axis, y=63 is water level
-#define LIBVXL_COORDS_VOXLAP	1
-
 //! @brief Used to map coordinates to a key
 //!
 //! This format is used:
@@ -36,7 +33,7 @@
 #define key_gety(key)			(((key)>>20)&0xFFF)
 #define key_getz(key)			((key)&0xFF)
 
-struct libvxl_span {
+struct __attribute((packed)) libvxl_span {
 	uint8_t length;
 	uint8_t color_start;
 	uint8_t color_end;
@@ -50,15 +47,14 @@ struct libvxl_block {
 
 struct libvxl_chunk {
 	struct libvxl_block* blocks;
-	int length, index;
+	size_t length, index;
 };
 
 struct libvxl_map {
 	uint32_t width, height, depth;
 	struct libvxl_chunk* chunks;
-	struct libvxl_chunk queue;
-	uint32_t* geometry;
-	int streamed;
+	size_t* geometry;
+	size_t streamed;
 };
 
 struct libvxl_stream {
@@ -70,14 +66,14 @@ struct libvxl_stream {
 	size_t pos;
 };
 
-struct libvxl_kv6 {
+struct __attribute((packed)) libvxl_kv6 {
 	char magic[4];
 	int width, height, depth;
 	float pivot[3];
 	int len;
 };
 
-struct libvxl_kv6_block {
+struct __attribute((packed)) libvxl_kv6_block {
 	int color;
 	short z;
 	unsigned char visfaces;
@@ -99,19 +95,19 @@ struct libvxl_kv6_block {
 //! @param len map data size in bytes
 //! @note Pass **NULL** as map data to create a new empty map, just water level will be filled with DEFAULT_COLOR
 //! @returns 1 on success
-int libvxl_create(struct libvxl_map* map, int w, int h, int d, const void* data, size_t len);
+bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d, const void* data, size_t len);
 
 //! @brief Write a map to disk, uses the libvxl_stream API internally
 //! @param map Map to be written
 //! @param name Filename of output file
 //! @returns total bytes written to disk
-int libvxl_writefile(struct libvxl_map* map, char* name);
+size_t libvxl_writefile(struct libvxl_map* map, char* name);
 
 //! @brief Compress the map back to vxl format and save it in *out*, the total byte size will be written to *size*
 //! @param map Map to compress
 //! @param out pointer to memory where the vxl will be stored
 //! @param size pointer to an int, total byte size
-void libvxl_write(struct libvxl_map* map, void* out, int* size);
+void libvxl_write(struct libvxl_map* map, void* out, size_t* size);
 
 //! @brief Tells if a block is solid at location [x,y,z]
 //! @param map Map to use
@@ -120,7 +116,7 @@ void libvxl_write(struct libvxl_map* map, void* out, int* size);
 //! @param z z-coordinate of block
 //! @returns solid=1, air=0
 //! @note Blocks out of map bounds are always non-solid
-int libvxl_map_issolid(struct libvxl_map* map, int x, int y, int z);
+bool libvxl_map_issolid(struct libvxl_map* map, int x, int y, int z);
 
 //! @brief Tells if a block is visible on the surface, meaning it is exposed to air
 //! @param map Map to use
@@ -128,7 +124,7 @@ int libvxl_map_issolid(struct libvxl_map* map, int x, int y, int z);
 //! @param y y-coordinate of block
 //! @param z z-coordinate of block
 //! @returns on surface=1
-int libvxl_map_onsurface(struct libvxl_map* map, int x, int y, int z);
+bool libvxl_map_onsurface(struct libvxl_map* map, int x, int y, int z);
 
 //! @brief Read block color
 //! @param map Map to use
@@ -187,13 +183,13 @@ void libvxl_free(struct libvxl_map* map);
 //! @param depth Pointer to int where map height will be stored
 //! @param data Pointer to valid map data, left unmodified also not freed
 //! @param len compressed map size in bytes
-int libvxl_size(int* size, int* depth, const void* data, size_t len);
+bool libvxl_size(size_t* size, size_t* depth, const void* data, size_t len);
 
 //! @brief Start streaming a map
 //! @param stream Pointer to a struct of type libvxl_stream
 //! @param map Map to stream
 //! @param chunk_size size in bytes each call to libvxl_stream_read() will encode at most
-void libvxl_stream(struct libvxl_stream* stream, struct libvxl_map* map, int chunk_size);
+void libvxl_stream(struct libvxl_stream* stream, struct libvxl_map* map, size_t chunk_size);
 
 //! @brief Free a stream from memory
 //! @param map stream to free
@@ -205,13 +201,13 @@ void libvxl_stream_free(struct libvxl_stream* stream);
 //! @param stream stream to use
 //! @param out pointer to buffer where encoded bytes are stored
 //! @returns total byte count that was encoded
-int libvxl_stream_read(struct libvxl_stream* stream, void* out);
+size_t libvxl_stream_read(struct libvxl_stream* stream, void* out);
 
 //! @brief Check if a position is inside a map's boundary
 //! @param map Map to use
 //! @param x x-coordinate of block
 //! @param y y-coordinate of block
 //! @param z z-coordinate of block
-int libvxl_map_isinside(struct libvxl_map* map, int x, int y, int z);
+bool libvxl_map_isinside(struct libvxl_map* map, int x, int y, int z);
 
 #endif
