@@ -5,4 +5,6 @@ set(CMAKE_C_STANDARD 99)
 
 add_compile_options(-Wall -Wextra -pedantic -std=c99 -Ofast)
 
-add_library(vxl STATIC libvxl.c libvxl.h)
+add_library(vxl STATIC libvxl.c)
+
+target_include_directories(vxl PUBLIC .)
