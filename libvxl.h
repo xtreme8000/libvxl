@@ -52,7 +52,7 @@ struct libvxl_chunk {
 };
 
 struct libvxl_map {
-	uint32_t width, height, depth;
+	size_t width, height, depth;
 	struct libvxl_chunk* chunks;
 	size_t* geometry;
 	size_t streamed;

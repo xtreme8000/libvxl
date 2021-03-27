@@ -13,11 +13,11 @@ static struct libvxl_chunk* chunk_fposition(struct libvxl_map* map, size_t x,
 	return map->chunks + chunk_x + chunk_y * chunk_cnt;
 }
 
-static size_t libvxl_geometry_get(struct libvxl_map* map, size_t x, size_t y,
+static bool libvxl_geometry_get(struct libvxl_map* map, size_t x, size_t y,
 								  size_t z) {
 	size_t offset = z + (x + y * map->width) * map->depth;
 	return map->geometry[offset / (sizeof(size_t) * 8)]
-		& (1 << (offset % (sizeof(size_t) * 8)));
+		& ((size_t)1 << (offset % (sizeof(size_t) * 8)));
 }
 
 static void libvxl_geometry_set(struct libvxl_map* map, size_t x, size_t y,
@@ -29,7 +29,7 @@ static void libvxl_geometry_set(struct libvxl_map* map, size_t x, size_t y,
 	size_t* val = map->geometry + offset / (sizeof(size_t) * 8);
 	size_t bit = offset % (sizeof(size_t) * 8);
 
-	*val = (*val & ~(1 << bit)) | (state << bit);
+	*val = (*val & ~((size_t)1 << bit)) | (state << bit);
 }
 
 static int cmp(const void* a, const void* b) {
@@ -84,7 +84,7 @@ static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 
 static size_t libvxl_span_length(struct libvxl_span* s) {
 	return s->length > 0 ? s->length * 4 :
-						   (s->color_end - s->color_start + 2) * 4;
+						   (s->color_end + 2 - s->color_start) * 4;
 }
 
 void libvxl_free(struct libvxl_map* map) {
@@ -517,9 +517,8 @@ bool libvxl_map_issolid(struct libvxl_map* map, int x, int y, int z) {
 		return false;
 	if(!map || z >= (int)map->depth)
 		return true;
-	return libvxl_geometry_get(map, (unsigned int)x % (unsigned int)map->width,
-							   (unsigned int)y % (unsigned int)map->height, z)
-		> 0;
+	return libvxl_geometry_get(map, (size_t)x % (size_t)map->width,
+							   (size_t)y % (size_t)map->height, z);
 }
 
 bool libvxl_map_onsurface(struct libvxl_map* map, int x, int y, int z) {
