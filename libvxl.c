@@ -103,6 +103,7 @@ bool libvxl_size(size_t* size, size_t* depth, const void* data, size_t len) {
 		return false;
 	size_t offset = 0;
 	size_t columns = 0;
+	*depth = 0;
 	while(offset + sizeof(struct libvxl_span) - 1 < len) {
 		struct libvxl_span* desc = (struct libvxl_span*)(data + offset);
 		if(desc->color_end + 1 > *depth)
@@ -111,6 +112,7 @@ bool libvxl_size(size_t* size, size_t* depth, const void* data, size_t len) {
 			columns++;
 		offset += libvxl_span_length(desc);
 	}
+	*depth = pow(2.0, ceil(log(*depth) / log(2.0)));
 	*size = sqrt(columns);
 	return true;
 }
