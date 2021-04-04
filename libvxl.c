@@ -14,7 +14,7 @@ static struct libvxl_chunk* chunk_fposition(struct libvxl_map* map, size_t x,
 }
 
 static bool libvxl_geometry_get(struct libvxl_map* map, size_t x, size_t y,
-								  size_t z) {
+								size_t z) {
 	size_t offset = z + (x + y * map->width) * map->depth;
 	return map->geometry[offset / (sizeof(size_t) * 8)]
 		& ((size_t)1 << (offset % (sizeof(size_t) * 8)));
@@ -260,11 +260,12 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 								 int x, int y, void* out, size_t* offset) {
 	struct libvxl_chunk* chunk = chunk_fposition(map, x, y);
 
+	bool first_run = true;
 	size_t z
 		= key_getz(chunk->blocks[chunk_offsets[chunk - map->chunks]].position);
 	while(1) {
 		size_t top_start, top_end;
-		size_t bottom_start, bottom_end;
+		size_t bottom_start;
 		for(top_start = z; top_start < map->depth
 			&& !libvxl_geometry_get(map, x, y, top_start);
 			top_start++)
@@ -280,24 +281,21 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 			&& !libvxl_map_onsurface(map, x, y, bottom_start);
 			bottom_start++)
 			;
-		for(bottom_end = bottom_start; bottom_end < map->depth
-			&& libvxl_geometry_get(map, x, y, bottom_end)
-			&& libvxl_map_onsurface(map, x, y, bottom_end);
-			bottom_end++)
-			;
 
 		struct libvxl_span* desc = (struct libvxl_span*)(out + *offset);
 		desc->color_start = top_start;
 		desc->color_end = top_end - 1;
-		desc->air_start = z;
+		desc->air_start = first_run ? 0 : z;
 		*offset += sizeof(struct libvxl_span);
 
+		first_run = false;
+
 		for(size_t k = top_start; k < top_end; k++) {
-			*(int*)(out + *offset)
+			*(uint32_t*)(out + *offset)
 				= (chunk->blocks[chunk_offsets[chunk - map->chunks]++].color
 				   & 0xFFFFFF)
 				| 0x7F000000;
-			*offset += sizeof(int);
+			*offset += sizeof(uint32_t);
 		}
 
 		if(bottom_start == map->depth) {
@@ -306,24 +304,33 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 			desc->length = 0;
 			break;
 		} else {
+			size_t bottom_end;
+			for(bottom_end = bottom_start; bottom_end < map->depth
+				&& libvxl_geometry_get(map, x, y, bottom_end)
+				&& libvxl_map_onsurface(map, x, y, bottom_end);
+				bottom_end++)
+				;
+
 			// there are more spans to follow, emit bottom colors
 			if(bottom_end < map->depth) {
 				desc->length
 					= 1 + top_end - top_start + bottom_end - bottom_start;
+
 				for(size_t k = bottom_start; k < bottom_end; k++) {
-					*(int*)(out + *offset)
+					*(uint32_t*)(out + *offset)
 						= (chunk->blocks[chunk_offsets[chunk - map->chunks]++]
 							   .color
 						   & 0xFFFFFF)
 						| 0x7F000000;
-					*offset += sizeof(int);
+					*offset += sizeof(uint32_t);
 				}
-			} else {
+
+				z = bottom_end;
+			} else { // bottom_end == map->depth
 				desc->length = 1 + top_end - top_start;
+				z = bottom_start;
 			}
 		}
-
-		z = (bottom_end < map->depth) ? bottom_end : bottom_start;
 	}
 }
 
