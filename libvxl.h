@@ -81,6 +81,24 @@ struct __attribute((packed)) libvxl_kv6_block {
 	unsigned char normal;
 };
 
+struct libvxl_chunk_copy {
+	size_t width, depth;
+	size_t* geometry;
+	struct libvxl_block* blocks_sorted;
+	size_t blocks_sorted_count;
+};
+
+void libvxl_copy_chunk_destroy(struct libvxl_chunk_copy* copy);
+
+uint32_t libvxl_copy_chunk_get_color(struct libvxl_chunk_copy* copy, size_t x,
+									 size_t y, size_t z);
+
+bool libvxl_copy_chunk_is_solid(struct libvxl_chunk_copy* copy, size_t x,
+								size_t y, size_t z);
+
+void libvxl_copy_chunk(struct libvxl_map* map, struct libvxl_chunk_copy* copy,
+					   size_t x, size_t y);
+
 //! @brief Load a map from memory or create an empty one
 //!
 //! Example:

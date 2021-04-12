@@ -305,7 +305,7 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 			 * set length to 0 */
 			desc->length = 0;
 			break;
-		} else {
+		} else { // bottom_start < map->depth
 			size_t bottom_end;
 			for(bottom_end = bottom_start; bottom_end < map->depth
 				&& libvxl_geometry_get(map, x, y, bottom_end)
@@ -662,4 +662,48 @@ void libvxl_map_setair(struct libvxl_map* map, int x, int y, int z) {
 		libvxl_map_set_internal(map, x, y, z + 1, DEFAULT_COLOR(x, y, z + 1));
 	if(!surface_prev[5] && libvxl_map_onsurface(map, x, y, z - 1))
 		libvxl_map_set_internal(map, x, y, z - 1, DEFAULT_COLOR(x, y, z - 1));
+}
+
+void libvxl_copy_chunk_destroy(struct libvxl_chunk_copy* copy) {
+	free(copy->geometry);
+	free(copy->blocks_sorted);
+}
+
+uint32_t libvxl_copy_chunk_get_color(struct libvxl_chunk_copy* copy, size_t x,
+									 size_t y, size_t z) {
+	struct libvxl_block* loc = bsearch(
+		&(struct libvxl_block) {
+			.position = pos_key(x, y, z),
+		},
+		copy->blocks_sorted, copy->blocks_sorted_count,
+		sizeof(struct libvxl_block), cmp);
+	return loc ? (loc->color & 0xFFFFFF) : 0;
+}
+
+bool libvxl_copy_chunk_is_solid(struct libvxl_chunk_copy* copy, size_t x,
+								size_t y, size_t z) {
+	size_t offset = z + (x + y * copy->width) * copy->depth;
+	return copy->geometry[offset / (sizeof(size_t) * 8)]
+		& ((size_t)1 << (offset % (sizeof(size_t) * 8)));
+}
+
+void libvxl_copy_chunk(struct libvxl_map* map, struct libvxl_chunk_copy* copy,
+					   size_t x, size_t y) {
+	if(!map || !copy)
+		return;
+
+	size_t sg
+		= (map->width * map->height * map->depth + (sizeof(size_t) * 8 - 1))
+		/ (sizeof(size_t) * 8) * sizeof(size_t);
+	copy->geometry = malloc(sg);
+	memcpy(copy->geometry, map->geometry, sg);
+
+	struct libvxl_chunk* c = chunk_fposition(map, x, y);
+	copy->blocks_sorted = malloc(c->index * sizeof(struct libvxl_block));
+	copy->blocks_sorted_count = c->index;
+	memcpy(copy->blocks_sorted, c->blocks,
+		   c->index * sizeof(struct libvxl_block));
+
+	copy->width = map->width;
+	copy->depth = map->depth;
 }
