@@ -259,6 +259,27 @@ bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d,
 	return true;
 }
 
+static size_t find_successive_surface(struct libvxl_chunk* chunk,
+									  size_t block_offset, int x, int y,
+									  size_t start,
+									  struct libvxl_block** current) {
+	*current = chunk->blocks + block_offset;
+	struct libvxl_block* end_marker = chunk->blocks + chunk->index;
+
+	if(*current < end_marker && (*current)->position == pos_key(x, y, start)) {
+		while(1) {
+			uint32_t next_z = key_getz((*current)->position) + 1;
+			(*current)++;
+
+			if(*current >= end_marker
+			   || (*current)->position != pos_key(x, y, next_z))
+				return next_z;
+		}
+	} else {
+		return start;
+	}
+}
+
 static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 								 int x, int y, void* out, size_t* offset) {
 	struct libvxl_chunk* chunk = chunk_fposition(map, x, y);
@@ -267,23 +288,25 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 	size_t z
 		= key_getz(chunk->blocks[chunk_offsets[chunk - map->chunks]].position);
 	while(1) {
-		size_t top_start, top_end;
-		size_t bottom_start;
-		for(top_start = z; top_start < map->depth
-			&& !libvxl_geometry_get(map, x, y, top_start);
-			top_start++)
-			;
-		for(top_end = top_start;
-			top_end < map->depth && libvxl_geometry_get(map, x, y, top_end)
-			&& libvxl_map_onsurface(map, x, y, top_end);
-			top_end++)
-			;
+		size_t top_start = libvxl_geometry_get(map, x, y, z) ?
+			z :
+			  key_getz(
+				chunk->blocks[chunk_offsets[chunk - map->chunks]].position);
 
-		for(bottom_start = top_end; bottom_start < map->depth
-			&& libvxl_geometry_get(map, x, y, bottom_start)
-			&& !libvxl_map_onsurface(map, x, y, bottom_start);
-			bottom_start++)
-			;
+		struct libvxl_block* last_surface_block;
+		size_t top_end
+			= find_successive_surface(chunk, chunk_offsets[chunk - map->chunks],
+									  x, y, top_start, &last_surface_block);
+
+		size_t bottom_start = map->depth;
+
+		if(!libvxl_geometry_get(map, x, y, top_end)) {
+			bottom_start = top_end;
+		} else if(last_surface_block < chunk->blocks + chunk->index
+				  && key_discardz(last_surface_block->position)
+					  == pos_key(x, y, 0)) {
+			bottom_start = key_getz(last_surface_block->position);
+		}
 
 		struct libvxl_span* desc = (struct libvxl_span*)(out + *offset);
 		desc->color_start = top_start;
@@ -307,12 +330,10 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 			desc->length = 0;
 			break;
 		} else { // bottom_start < map->depth
-			size_t bottom_end;
-			for(bottom_end = bottom_start; bottom_end < map->depth
-				&& libvxl_geometry_get(map, x, y, bottom_end)
-				&& libvxl_map_onsurface(map, x, y, bottom_end);
-				bottom_end++)
-				;
+			struct libvxl_block* last_surface_block;
+			size_t bottom_end = find_successive_surface(
+				chunk, chunk_offsets[chunk - map->chunks], x, y, bottom_start,
+				&last_surface_block);
 
 			// there are more spans to follow, emit bottom colors
 			if(bottom_end < map->depth) {
