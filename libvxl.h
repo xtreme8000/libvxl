@@ -82,7 +82,7 @@ struct __attribute((packed)) libvxl_kv6_block {
 };
 
 struct libvxl_chunk_copy {
-	size_t width, depth;
+	size_t width, height, depth;
 	size_t* geometry;
 	struct libvxl_block* blocks_sorted;
 	size_t blocks_sorted_count;
