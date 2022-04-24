@@ -63,9 +63,31 @@ static void libvxl_chunk_put(struct libvxl_chunk* chunk, uint32_t pos,
 		   sizeof(struct libvxl_block));
 }
 
+static struct libvxl_block*
+libvxl_chunk_gequal_block(struct libvxl_chunk* chunk, uint32_t pos) {
+	assert(chunk);
+
+	size_t start = 0;
+	size_t end = chunk->index;
+	while(end > start) {
+		size_t mid = (start + end) / 2;
+		if(pos > chunk->blocks[mid].position) {
+			start = mid + 1;
+		} else if(pos < chunk->blocks[mid].position) {
+			end = mid;
+		} else {
+			return chunk->blocks + mid;
+		}
+	}
+
+	return chunk->blocks + start;
+}
+
 static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 								uint32_t color) {
 	assert(chunk);
+
+	// TODO: use libvxl_chunk_gequal_block
 
 	size_t start = 0;
 	size_t end = chunk->index;
@@ -586,12 +608,18 @@ bool libvxl_map_onsurface(struct libvxl_map* map, int x, int y, int z) {
 void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result) {
 	if(!map || x < 0 || y < 0 || x >= (int)map->width || y >= (int)map->height)
 		return;
-	int z;
-	for(z = 0; z < map->depth; z++)
-		if(libvxl_geometry_get(map, x, y, z))
-			break;
-	result[0] = libvxl_map_get(map, x, y, z);
-	result[1] = z;
+
+	struct libvxl_chunk* c = chunk_fposition(map, x, y);
+	struct libvxl_block* block = libvxl_chunk_gequal_block(c, pos_key(x, y, 0));
+
+	assert(block < c->blocks + c->index);
+	assert(key_discardz(block->position) == pos_key(x, y, 0));
+	assert(key_getz(block->position) < map->depth);
+
+	result[0] = block->color;
+	result[1] = key_getz(block->position);
+}
+
 }
 
 static void libvxl_map_set_internal(struct libvxl_map* map, int x, int y, int z,
