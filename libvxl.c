@@ -699,7 +699,7 @@ void libvxl_map_set(struct libvxl_map* map, int x, int y, int z,
 
 void libvxl_map_setair(struct libvxl_map* map, int x, int y, int z) {
 	if(!map || x < 0 || y < 0 || z < 0 || x >= (int)map->width
-	   || y >= (int)map->height || z >= (int)map->depth)
+	   || y >= (int)map->height || z >= (int)map->depth - 1)
 		return;
 
 	bool surface_prev[6] = {
