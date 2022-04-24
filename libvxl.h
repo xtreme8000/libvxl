@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#ifndef libvxl_assert
+#include <assert.h>
+#define libvxl_assert(cond, msg) assert(cond)
+#endif
+
 //! @file libvxl.h
 //! Reads and writes vxl maps, using an likewise internal memory format
 
@@ -33,6 +38,10 @@
 #define key_getx(key)			(((key)>>8)&0xFFF)
 #define key_gety(key)			(((key)>>20)&0xFFF)
 #define key_getz(key)			((key)&0xFF)
+
+#ifdef _MSC_VER
+#define __attribute(x)
+#endif
 
 struct __attribute((packed)) libvxl_span {
 	uint8_t length;
