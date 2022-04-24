@@ -620,8 +620,6 @@ void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result) {
 	result[1] = key_getz(block->position);
 }
 
-}
-
 static void libvxl_map_set_internal(struct libvxl_map* map, int x, int y, int z,
 									uint32_t color) {
 	assert(map);
