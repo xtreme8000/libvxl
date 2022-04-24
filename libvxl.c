@@ -51,7 +51,7 @@ static void libvxl_chunk_put(struct libvxl_chunk* chunk, uint32_t pos,
 
 	if(chunk->index == chunk->length) { // needs to grow
 		chunk->length *= LIBVXL_CHUNK_GROWTH;
-		chunk->blocks = realloc(chunk->blocks,
+		chunk->blocks = libvxl_mem_realloc(chunk->blocks,
 								chunk->length * sizeof(struct libvxl_block));
 	}
 
@@ -105,7 +105,7 @@ static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 
 	if(chunk->index == chunk->length) { // needs to grow
 		chunk->length *= LIBVXL_CHUNK_GROWTH;
-		chunk->blocks = realloc(chunk->blocks,
+		chunk->blocks = libvxl_mem_realloc(chunk->blocks,
 								chunk->length * sizeof(struct libvxl_block));
 	}
 
@@ -129,9 +129,9 @@ void libvxl_free(struct libvxl_map* map) {
 	size_t sx = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (map->height + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	for(size_t k = 0; k < sx * sy; k++)
-		free(map->chunks[k].blocks);
-	free(map->chunks);
-	free(map->geometry);
+		libvxl_mem_free(map->chunks[k].blocks);
+	libvxl_mem_free(map->chunks);
+	libvxl_mem_free(map->geometry);
 }
 
 bool libvxl_size(size_t* size, size_t* depth, const void* data, size_t len) {
@@ -163,20 +163,20 @@ bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d,
 	map->depth = d;
 	size_t sx = (w + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (h + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
-	map->chunks = malloc(sx * sy * sizeof(struct libvxl_chunk));
+	map->chunks = libvxl_mem_malloc(sx * sy * sizeof(struct libvxl_chunk));
 	for(size_t y = 0; y < sy; y++) {
 		for(size_t x = 0; x < sx; x++) {
 			map->chunks[x + y * sx].length = LIBVXL_CHUNK_SIZE
 				* LIBVXL_CHUNK_SIZE * 2; // allows for two fully filled layers
 			map->chunks[x + y * sx].index = 0;
-			map->chunks[x + y * sx].blocks = malloc(
+			map->chunks[x + y * sx].blocks = libvxl_mem_malloc(
 				map->chunks[x + y * sx].length * sizeof(struct libvxl_block));
 		}
 	}
 
 	size_t sg = (w * h * d + (sizeof(size_t) * 8 - 1)) / (sizeof(size_t) * 8)
 		* sizeof(size_t);
-	map->geometry = malloc(sg);
+	map->geometry = libvxl_mem_malloc(sg);
 	if(data) {
 		memset(map->geometry, 0xFF, sg);
 	} else {
@@ -409,11 +409,11 @@ void libvxl_stream(struct libvxl_stream* stream, struct libvxl_map* map,
 	stream->chunk_size = chunk_size;
 	stream->pos = pos_key(0, 0, 0);
 	stream->buffer_offset = 0;
-	stream->buffer = malloc(stream->chunk_size * 2);
+	stream->buffer = libvxl_mem_malloc(stream->chunk_size * 2);
 
 	size_t sx = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (map->height + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
-	stream->chunk_offsets = malloc(sx * sy * sizeof(size_t));
+	stream->chunk_offsets = libvxl_mem_malloc(sx * sy * sizeof(size_t));
 	memset(stream->chunk_offsets, 0, sx * sy * sizeof(size_t));
 }
 
@@ -421,8 +421,8 @@ void libvxl_stream_free(struct libvxl_stream* stream) {
 	if(!stream)
 		return;
 	stream->map->streamed--;
-	free(stream->buffer);
-	free(stream->chunk_offsets);
+	libvxl_mem_free(stream->buffer);
+	libvxl_mem_free(stream->chunk_offsets);
 }
 
 #ifndef min
@@ -461,7 +461,7 @@ void libvxl_write(struct libvxl_map* map, void* out, size_t* size) {
 	size_t sx = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (map->height + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 
-	size_t *chunk_offsets = (size_t*)malloc(sx * sy);
+	size_t *chunk_offsets = (size_t*)libvxl_mem_malloc(sx * sy);
 	memset(chunk_offsets, 0, sx * sy * sizeof(size_t));
 
 	size_t offset = 0;
@@ -471,7 +471,7 @@ void libvxl_write(struct libvxl_map* map, void* out, size_t* size) {
 
 	if(size)
 		*size = offset;
-	free(chunk_offsets);
+	libvxl_mem_free(chunk_offsets);
 }
 
 size_t libvxl_writefile(struct libvxl_map* map, char* name) {
@@ -665,7 +665,7 @@ static void libvxl_map_setair_internal(struct libvxl_map* map, int x, int y,
 
 		if(chunk->index * LIBVXL_CHUNK_SHRINK <= chunk->length) {
 			chunk->length /= LIBVXL_CHUNK_GROWTH;
-			chunk->blocks = realloc(
+			chunk->blocks = libvxl_mem_realloc(
 				chunk->blocks, chunk->length * sizeof(struct libvxl_block));
 		}
 	}
@@ -745,8 +745,8 @@ void libvxl_copy_chunk_destroy(struct libvxl_chunk_copy* copy) {
 	if(!copy)
 		return;
 
-	free(copy->geometry);
-	free(copy->blocks_sorted);
+	libvxl_mem_free(copy->geometry);
+	libvxl_mem_free(copy->blocks_sorted);
 }
 
 uint32_t libvxl_copy_chunk_get_color(struct libvxl_chunk_copy* copy, size_t x,
@@ -781,11 +781,11 @@ void libvxl_copy_chunk(struct libvxl_map* map, struct libvxl_chunk_copy* copy,
 	size_t sg
 		= (map->width * map->height * map->depth + (sizeof(size_t) * 8 - 1))
 		/ (sizeof(size_t) * 8) * sizeof(size_t);
-	copy->geometry = malloc(sg);
+	copy->geometry = libvxl_mem_malloc(sg);
 	memcpy(copy->geometry, map->geometry, sg);
 
 	struct libvxl_chunk* c = chunk_fposition(map, x, y);
-	copy->blocks_sorted = malloc(c->index * sizeof(struct libvxl_block));
+	copy->blocks_sorted = libvxl_mem_malloc(c->index * sizeof(struct libvxl_block));
 	copy->blocks_sorted_count = c->index;
 	memcpy(copy->blocks_sorted, c->blocks,
 		   c->index * sizeof(struct libvxl_block));
