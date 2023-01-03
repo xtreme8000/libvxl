@@ -6,7 +6,7 @@
 
 #include "libvxl.h"
 
-#define LIBVXL_SPAN(base, off) (struct libvxl_span*)((uint8_t*)(base) + (off))
+#define LIBVXL_SPAN(base, off) ((struct libvxl_span*)((uint8_t*)(base) + (off)))
 
 static struct libvxl_chunk* chunk_fposition(struct libvxl_map* map, size_t x,
 											size_t y) {
