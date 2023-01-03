@@ -6,9 +6,12 @@
 
 #include "libvxl.h"
 
+#define LIBVXL_SPAN(base, off) (struct libvxl_span*)((uint8_t*)(base) + (off))
+
 static struct libvxl_chunk* chunk_fposition(struct libvxl_map* map, size_t x,
 											size_t y) {
-	assert(map && x < map->width && y < map->height);
+	libvxl_assert(map && x < map->width && y < map->height,
+				  "invalid input parameters");
 
 	size_t chunk_cnt = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t chunk_x = x / LIBVXL_CHUNK_SIZE;
@@ -18,7 +21,8 @@ static struct libvxl_chunk* chunk_fposition(struct libvxl_map* map, size_t x,
 
 static bool libvxl_geometry_get(struct libvxl_map* map, size_t x, size_t y,
 								size_t z) {
-	assert(map && x < map->width && y < map->height && z < map->depth);
+	libvxl_assert(map && x < map->width && y < map->height && z < map->depth,
+				  "invalid input parameters");
 
 	size_t offset = z + (x + y * map->width) * map->depth;
 	return (map->geometry[offset / (sizeof(size_t) * 8)]
@@ -28,7 +32,8 @@ static bool libvxl_geometry_get(struct libvxl_map* map, size_t x, size_t y,
 
 static void libvxl_geometry_set(struct libvxl_map* map, size_t x, size_t y,
 								size_t z, size_t state) {
-	assert(map && x < map->width && y < map->height && z < map->depth);
+	libvxl_assert(map && x < map->width && y < map->height && z < map->depth,
+				  "invalid input parameters");
 
 	size_t offset = z + (x + y * map->width) * map->depth;
 
@@ -42,17 +47,17 @@ static int cmp(const void* a, const void* b) {
 	struct libvxl_block* aa = (struct libvxl_block*)a;
 	struct libvxl_block* bb = (struct libvxl_block*)b;
 
-	return aa->position - bb->position;
+	return (int)(aa->position - bb->position);
 }
 
 static void libvxl_chunk_put(struct libvxl_chunk* chunk, uint32_t pos,
 							 uint32_t color) {
-	assert(chunk);
+	libvxl_assert(chunk, "chunk pointer is null");
 
 	if(chunk->index == chunk->length) { // needs to grow
 		chunk->length *= LIBVXL_CHUNK_GROWTH;
-		chunk->blocks = realloc(chunk->blocks,
-								chunk->length * sizeof(struct libvxl_block));
+		chunk->blocks = libvxl_mem_realloc(
+			chunk->blocks, chunk->length * sizeof(struct libvxl_block));
 	}
 
 	memcpy(chunk->blocks + (chunk->index++),
@@ -65,7 +70,7 @@ static void libvxl_chunk_put(struct libvxl_chunk* chunk, uint32_t pos,
 
 static struct libvxl_block*
 libvxl_chunk_gequal_block(struct libvxl_chunk* chunk, uint32_t pos) {
-	assert(chunk);
+	libvxl_assert(chunk, "chunk pointer is null");
 
 	size_t start = 0;
 	size_t end = chunk->index;
@@ -85,7 +90,7 @@ libvxl_chunk_gequal_block(struct libvxl_chunk* chunk, uint32_t pos) {
 
 static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 								uint32_t color) {
-	assert(chunk);
+	libvxl_assert(chunk, "chunk pointer is null");
 
 	// TODO: use libvxl_chunk_gequal_block
 
@@ -105,8 +110,8 @@ static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 
 	if(chunk->index == chunk->length) { // needs to grow
 		chunk->length *= LIBVXL_CHUNK_GROWTH;
-		chunk->blocks = realloc(chunk->blocks,
-								chunk->length * sizeof(struct libvxl_block));
+		chunk->blocks = libvxl_mem_realloc(
+			chunk->blocks, chunk->length * sizeof(struct libvxl_block));
 	}
 
 	memmove(chunk->blocks + start + 1, chunk->blocks + start,
@@ -117,10 +122,10 @@ static void libvxl_chunk_insert(struct libvxl_chunk* chunk, uint32_t pos,
 }
 
 static size_t libvxl_span_length(struct libvxl_span* s) {
-	assert(s);
+	libvxl_assert(s, "span pointer is null");
 
 	return s->length > 0 ? s->length * 4 :
-							 (s->color_end + 2 - s->color_start) * 4;
+						   (s->color_end + 2 - s->color_start) * 4;
 }
 
 void libvxl_free(struct libvxl_map* map) {
@@ -129,9 +134,9 @@ void libvxl_free(struct libvxl_map* map) {
 	size_t sx = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (map->height + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	for(size_t k = 0; k < sx * sy; k++)
-		free(map->chunks[k].blocks);
-	free(map->chunks);
-	free(map->geometry);
+		libvxl_mem_free(map->chunks[k].blocks);
+	libvxl_mem_free(map->chunks);
+	libvxl_mem_free(map->geometry);
 }
 
 bool libvxl_size(size_t* size, size_t* depth, const void* data, size_t len) {
@@ -141,14 +146,14 @@ bool libvxl_size(size_t* size, size_t* depth, const void* data, size_t len) {
 	size_t columns = 0;
 	*depth = 0;
 	while(offset + sizeof(struct libvxl_span) - 1 < len) {
-		struct libvxl_span* desc = (struct libvxl_span*)(data + offset);
+		struct libvxl_span* desc = LIBVXL_SPAN(data, offset);
 		if(desc->color_end + 1 > (int)*depth)
 			*depth = desc->color_end + 1;
 		if(!desc->length)
 			columns++;
 		offset += libvxl_span_length(desc);
 	}
-	*depth = 1 << (int)ceil(log2f(*depth));
+	*depth = (size_t)(1U << (uint32_t)ceil(log2f(*depth)));
 	*size = sqrt(columns);
 	return true;
 }
@@ -163,20 +168,20 @@ bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d,
 	map->depth = d;
 	size_t sx = (w + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (h + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
-	map->chunks = malloc(sx * sy * sizeof(struct libvxl_chunk));
+	map->chunks = libvxl_mem_malloc(sx * sy * sizeof(struct libvxl_chunk));
 	for(size_t y = 0; y < sy; y++) {
 		for(size_t x = 0; x < sx; x++) {
 			map->chunks[x + y * sx].length = LIBVXL_CHUNK_SIZE
 				* LIBVXL_CHUNK_SIZE * 2; // allows for two fully filled layers
 			map->chunks[x + y * sx].index = 0;
-			map->chunks[x + y * sx].blocks = malloc(
+			map->chunks[x + y * sx].blocks = libvxl_mem_malloc(
 				map->chunks[x + y * sx].length * sizeof(struct libvxl_block));
 		}
 	}
 
 	size_t sg = (w * h * d + (sizeof(size_t) * 8 - 1)) / (sizeof(size_t) * 8)
 		* sizeof(size_t);
-	map->geometry = malloc(sg);
+	map->geometry = libvxl_mem_malloc(sg);
 	if(data) {
 		memset(map->geometry, 0xFF, sg);
 	} else {
@@ -195,11 +200,11 @@ bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d,
 			while(1) {
 				if(offset + sizeof(struct libvxl_span) - 1 >= len)
 					return false;
-				struct libvxl_span* desc = (struct libvxl_span*)(data + offset);
+				struct libvxl_span* desc = LIBVXL_SPAN(data, offset);
 				if(offset + libvxl_span_length(desc) - 1 >= len)
 					return false;
-				uint32_t* color_data
-					= (uint32_t*)(data + offset + sizeof(struct libvxl_span));
+				uint32_t* color_data = (uint32_t*)LIBVXL_SPAN(
+					data, offset + sizeof(struct libvxl_span));
 
 				for(size_t z = desc->air_start; z < desc->color_start; z++)
 					libvxl_geometry_set(map, x, y, z, 0);
@@ -218,8 +223,7 @@ bool libvxl_create(struct libvxl_map* map, size_t w, size_t h, size_t d,
 					   >= len)
 						return false;
 					struct libvxl_span* desc_next
-						= (struct libvxl_span*)(data + offset
-												+ libvxl_span_length(desc));
+						= LIBVXL_SPAN(data, offset + libvxl_span_length(desc));
 					for(size_t z = desc_next->air_start - bottom_len;
 						z < desc_next->air_start; z++) // bottom color run
 						libvxl_chunk_put(
@@ -298,7 +302,7 @@ static size_t find_successive_surface(struct libvxl_chunk* chunk,
 									  size_t block_offset, int x, int y,
 									  size_t start,
 									  struct libvxl_block** current) {
-	assert(chunk && current);
+	libvxl_assert(chunk && current, "chunk or block pointer is null");
 
 	*current = chunk->blocks + block_offset;
 	struct libvxl_block* end_marker = chunk->blocks + chunk->index;
@@ -319,7 +323,8 @@ static size_t find_successive_surface(struct libvxl_chunk* chunk,
 
 static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 								 int x, int y, void* out, size_t* offset) {
-	assert(map && chunk_offsets && out && offset);
+	libvxl_assert(map && chunk_offsets && out && offset,
+				  "invalid input parameters");
 
 	struct libvxl_chunk* chunk = chunk_fposition(map, x, y);
 
@@ -329,7 +334,7 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 	while(1) {
 		size_t top_start = libvxl_geometry_get(map, x, y, z) ?
 			z :
-			  key_getz(
+			key_getz(
 				chunk->blocks[chunk_offsets[chunk - map->chunks]].position);
 
 		struct libvxl_block* last_surface_block;
@@ -347,19 +352,21 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 			bottom_start = key_getz(last_surface_block->position);
 		}
 
-		struct libvxl_span* desc = (struct libvxl_span*)(out + *offset);
+		struct libvxl_span* desc = LIBVXL_SPAN(out, *offset);
 		desc->color_start = top_start;
 		desc->color_end = top_end - 1;
 		desc->air_start = first_run ? 0 : z;
 		*offset += sizeof(struct libvxl_span);
 
-		assert(desc->air_start <= desc->color_start);
-		assert(desc->color_start <= desc->color_end + 1);
+		libvxl_assert(desc->air_start <= desc->color_start,
+					  "air_start is bigger than color_start");
+		libvxl_assert(desc->color_start <= desc->color_end + 1,
+					  "color_start is bigger than color_end + 1");
 
 		first_run = false;
 
 		for(size_t k = top_start; k < top_end; k++) {
-			*(uint32_t*)(out + *offset)
+			*(uint32_t*)LIBVXL_SPAN(out, *offset)
 				= (chunk->blocks[chunk_offsets[chunk - map->chunks]++].color
 				   & 0xFFFFFF)
 				| 0x7F000000;
@@ -383,7 +390,7 @@ static void libvxl_column_encode(struct libvxl_map* map, size_t* chunk_offsets,
 					= 1 + top_end - top_start + bottom_end - bottom_start;
 
 				for(size_t k = bottom_start; k < bottom_end; k++) {
-					*(uint32_t*)(out + *offset)
+					*(uint32_t*)LIBVXL_SPAN(out, *offset)
 						= (chunk->blocks[chunk_offsets[chunk - map->chunks]++]
 							   .color
 						   & 0xFFFFFF)
@@ -409,11 +416,11 @@ void libvxl_stream(struct libvxl_stream* stream, struct libvxl_map* map,
 	stream->chunk_size = chunk_size;
 	stream->pos = pos_key(0, 0, 0);
 	stream->buffer_offset = 0;
-	stream->buffer = malloc(stream->chunk_size * 2);
+	stream->buffer = libvxl_mem_malloc(stream->chunk_size * 2);
 
 	size_t sx = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (map->height + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
-	stream->chunk_offsets = malloc(sx * sy * sizeof(size_t));
+	stream->chunk_offsets = libvxl_mem_malloc(sx * sy * sizeof(size_t));
 	memset(stream->chunk_offsets, 0, sx * sy * sizeof(size_t));
 }
 
@@ -421,8 +428,8 @@ void libvxl_stream_free(struct libvxl_stream* stream) {
 	if(!stream)
 		return;
 	stream->map->streamed--;
-	free(stream->buffer);
-	free(stream->chunk_offsets);
+	libvxl_mem_free(stream->buffer);
+	libvxl_mem_free(stream->chunk_offsets);
 }
 
 #ifndef min
@@ -448,7 +455,7 @@ size_t libvxl_stream_read(struct libvxl_stream* stream, void* out) {
 	if(length < stream->chunk_size) {
 		stream->buffer_offset = 0;
 	} else {
-		memmove(stream->buffer, stream->buffer + stream->chunk_size,
+		memmove(stream->buffer, (uint8_t*)stream->buffer + stream->chunk_size,
 				length - stream->chunk_size);
 		stream->buffer_offset -= stream->chunk_size;
 	}
@@ -461,7 +468,7 @@ void libvxl_write(struct libvxl_map* map, void* out, size_t* size) {
 	size_t sx = (map->width + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 	size_t sy = (map->height + LIBVXL_CHUNK_SIZE - 1) / LIBVXL_CHUNK_SIZE;
 
-	size_t chunk_offsets[sx * sy];
+	size_t* chunk_offsets = libvxl_mem_malloc(sx * sy * sizeof(size_t));
 	memset(chunk_offsets, 0, sx * sy * sizeof(size_t));
 
 	size_t offset = 0;
@@ -471,6 +478,8 @@ void libvxl_write(struct libvxl_map* map, void* out, size_t* size) {
 
 	if(size)
 		*size = offset;
+
+	libvxl_mem_free(chunk_offsets);
 }
 
 size_t libvxl_writefile(struct libvxl_map* map, char* name) {
@@ -612,9 +621,11 @@ void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result) {
 	struct libvxl_chunk* c = chunk_fposition(map, x, y);
 	struct libvxl_block* block = libvxl_chunk_gequal_block(c, pos_key(x, y, 0));
 
-	assert(block < c->blocks + c->index);
-	assert(key_discardz(block->position) == pos_key(x, y, 0));
-	assert(key_getz(block->position) < map->depth);
+	libvxl_assert(block < c->blocks + c->index, "block is out of bounds");
+	libvxl_assert(key_discardz(block->position) == pos_key(x, y, 0),
+				  "position is out of bounds");
+	libvxl_assert(key_getz(block->position) < map->depth,
+				  "position is out of bounds");
 
 	result[0] = block->color;
 	result[1] = key_getz(block->position);
@@ -622,7 +633,7 @@ void libvxl_map_gettop(struct libvxl_map* map, int x, int y, uint32_t* result) {
 
 static void libvxl_map_set_internal(struct libvxl_map* map, int x, int y, int z,
 									uint32_t color) {
-	assert(map);
+	libvxl_assert(map, "map is null");
 
 	if(z < 0 || z >= (int)map->depth)
 		return;
@@ -638,7 +649,7 @@ static void libvxl_map_set_internal(struct libvxl_map* map, int x, int y, int z,
 
 static void libvxl_map_setair_internal(struct libvxl_map* map, int x, int y,
 									   int z) {
-	assert(map);
+	libvxl_assert(map, "map is null");
 
 	if(z < 0 || z >= (int)map->depth)
 		return;
@@ -664,7 +675,7 @@ static void libvxl_map_setair_internal(struct libvxl_map* map, int x, int y,
 
 		if(chunk->index * LIBVXL_CHUNK_SHRINK <= chunk->length) {
 			chunk->length /= LIBVXL_CHUNK_GROWTH;
-			chunk->blocks = realloc(
+			chunk->blocks = libvxl_mem_realloc(
 				chunk->blocks, chunk->length * sizeof(struct libvxl_block));
 		}
 	}
@@ -703,22 +714,22 @@ void libvxl_map_setair(struct libvxl_map* map, int x, int y, int z) {
 	bool surface_prev[6] = {
 		libvxl_map_issolid(map, x, y + 1, z) ?
 			libvxl_map_onsurface(map, x, y + 1, z) :
-			  true,
+			true,
 		libvxl_map_issolid(map, x, y - 1, z) ?
 			libvxl_map_onsurface(map, x, y - 1, z) :
-			  true,
+			true,
 		libvxl_map_issolid(map, x + 1, y, z) ?
 			libvxl_map_onsurface(map, x + 1, y, z) :
-			  true,
+			true,
 		libvxl_map_issolid(map, x - 1, y, z) ?
 			libvxl_map_onsurface(map, x - 1, y, z) :
-			  true,
+			true,
 		libvxl_map_issolid(map, x, y, z + 1) ?
 			libvxl_map_onsurface(map, x, y, z + 1) :
-			  true,
+			true,
 		libvxl_map_issolid(map, x, y, z - 1) ?
 			libvxl_map_onsurface(map, x, y, z - 1) :
-			  true,
+			true,
 	};
 
 	libvxl_map_setair_internal(map, x, y, z);
@@ -744,8 +755,8 @@ void libvxl_copy_chunk_destroy(struct libvxl_chunk_copy* copy) {
 	if(!copy)
 		return;
 
-	free(copy->geometry);
-	free(copy->blocks_sorted);
+	libvxl_mem_free(copy->geometry);
+	libvxl_mem_free(copy->blocks_sorted);
 }
 
 uint32_t libvxl_copy_chunk_get_color(struct libvxl_chunk_copy* copy, size_t x,
@@ -780,11 +791,12 @@ void libvxl_copy_chunk(struct libvxl_map* map, struct libvxl_chunk_copy* copy,
 	size_t sg
 		= (map->width * map->height * map->depth + (sizeof(size_t) * 8 - 1))
 		/ (sizeof(size_t) * 8) * sizeof(size_t);
-	copy->geometry = malloc(sg);
+	copy->geometry = libvxl_mem_malloc(sg);
 	memcpy(copy->geometry, map->geometry, sg);
 
 	struct libvxl_chunk* c = chunk_fposition(map, x, y);
-	copy->blocks_sorted = malloc(c->index * sizeof(struct libvxl_block));
+	copy->blocks_sorted
+		= libvxl_mem_malloc(c->index * sizeof(struct libvxl_block));
 	copy->blocks_sorted_count = c->index;
 	memcpy(copy->blocks_sorted, c->blocks,
 		   c->index * sizeof(struct libvxl_block));

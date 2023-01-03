@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#ifndef libvxl_assert
+#include <assert.h>
+#define libvxl_assert(cond, msg) assert(cond)
+#endif
+
 //! @file libvxl.h
 //! Reads and writes vxl maps, using an likewise internal memory format
 
@@ -15,6 +20,12 @@
 //! @brief How many blocks the buffer will grow once it is full
 #define LIBVXL_CHUNK_GROWTH		2
 #define LIBVXL_CHUNK_SHRINK		4
+
+#ifndef libvxl_mem_malloc
+#define libvxl_mem_malloc(sz) malloc(sz)
+#define libvxl_mem_realloc(p, newsz) realloc(p, newsz)
+#define libvxl_mem_free(p) free(p)
+#endif
 
 //! @brief The default color to use when a block is solid, but has no color
 //!
@@ -28,11 +39,15 @@
 //! 0xYYYXXXZZ
 //! @endcode
 //! This leaves 12 bits for X and Y and 8 bits for Z
-#define pos_key(x,y,z)			(((y)<<20) | ((x)<<8) | (z))
-#define key_discardz(key)		((key)&0xFFFFFF00)
+#define pos_key(x,y,z)			((uint32_t)(((y)<<20) | ((x)<<8) | (z)))
+#define key_discardz(key)		((uint32_t)((key)&0xFFFFFF00))
 #define key_getx(key)			(((key)>>8)&0xFFF)
 #define key_gety(key)			(((key)>>20)&0xFFF)
 #define key_getz(key)			((key)&0xFF)
+
+#ifdef _MSC_VER
+#define __attribute(x)
+#endif
 
 struct __attribute((packed)) libvxl_span {
 	uint8_t length;
